@@ -1,0 +1,8 @@
+node_modules/
+butler_release/
+.idea/
+*.bat
+.vscode
+.VSCodeCounter/
+out/
+deprecated/
