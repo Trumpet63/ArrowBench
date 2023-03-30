@@ -6,6 +6,7 @@ let ctx: CanvasRenderingContext2D = canvas.getContext("2d");
 
 let arrowCounter = <HTMLSpanElement> document.getElementById("arrowCounter");
 let fpsCounter = <HTMLSpanElement> document.getElementById("fpsCounter");
+let arrowsPerMsCounter = <HTMLSpanElement> document.getElementById("arrowsPerMsCounter");
 
 let arrowSize: number = 40;
 let halfArrowSize: number = arrowSize / 2;
@@ -68,12 +69,13 @@ function drawArrowToCacheResized(ctx: CanvasRenderingContext2D, rotationIndex: n
 
 function createNotResizedCache() {
     arrowCacheNotResized = [];
+    let arrowImageSize: number = arrowColors[0].height;
     for (let rotationIndex = 0; rotationIndex < 4; rotationIndex++) {
         let colorCache: HTMLCanvasElement[] = []
         for (let colorIndex = 0; colorIndex < arrowColors.length; colorIndex++) {
             let canvas: HTMLCanvasElement = document.createElement("canvas");
-            canvas.width = arrowSize;
-            canvas.height = arrowSize;
+            canvas.width = arrowImageSize;
+            canvas.height = arrowImageSize;
             let ctx: CanvasRenderingContext2D = canvas.getContext("2d");
             drawArrowToCacheNotResized(ctx, rotationIndex, colorIndex);
             colorCache.push(canvas);
@@ -140,7 +142,8 @@ document.addEventListener("mousemove", (e: MouseEvent) => {
 });
 
 let previousFrameTimes: number[] = [];
-let numFrameTimesToRemember: number = 100;
+let numFrameTimesToRemember: number = 200;
+let framesWithoutAStateChange: number = 0;
 
 let arrows: Arrow[] = [];
 
@@ -155,6 +158,17 @@ class Arrow {
 
 let logCounter: number = 0;
 
+let drawMethod: ((arrow: Arrow) => void)[] = [
+    drawArrow000,
+    drawArrow001,
+    drawArrow010,
+    drawArrow011,
+    // drawArrow100,
+    // drawArrow101,
+    // drawArrow110,
+    // drawArrow111,
+];
+
 function draw(currentTimeMillis: number) {
     if (previousFrameTimes.length >= numFrameTimesToRemember) {
         previousFrameTimes.shift();
@@ -166,7 +180,7 @@ function draw(currentTimeMillis: number) {
         deltaTimeMillis = currentTimeMillis - previousFrameTimes[previousFrameTimes.length - 2];
     }
 
-    // simiulate the arrows
+    // simulate the arrows
     if (previousFrameTimes.length > 1) {
         for (let i = 0; i < arrows.length; i++) {
             arrows[i].x += arrows[i].velocityX * deltaTimeMillis;
@@ -192,23 +206,45 @@ function draw(currentTimeMillis: number) {
     }
 
     if (mouseDown) {
-        generateArrow();
+        for (let i = 0; i < 3; i++) {
+            generateArrow();
+        }
     }
 
-    // update the UI
+    // update the top UI
     arrowCounter.innerText = arrows.length.toString();
     if (previousFrameTimes.length > 1) {
-        fpsCounter.innerHTML = Math.round(1000 / deltaTimeMillis).toString();
+        fpsCounter.innerText = Math.round(1000 / deltaTimeMillis).toString();
     } else {
-        fpsCounter.innerHTML = "unknown";
+        fpsCounter.innerText = "calculating...";
     }
+    if (framesWithoutAStateChange >= numFrameTimesToRemember) {
+        arrowsPerMsCounter.innerText = roundToNPlaces(
+            arrows.length
+            / (currentTimeMillis - previousFrameTimes[0])
+            * numFrameTimesToRemember
+            , 2).toString();
+    } else {
+        arrowsPerMsCounter.innerText = "calculating...";
+    }
+
+    // read the state of the right UI
+    let cacheRotationYes = (<HTMLInputElement> document.getElementById("cacheRotationYes")).checked;
+    let cacheResizeYes = (<HTMLInputElement> document.getElementById("cacheResizeYes")).checked;
+    let integerPositionYes = (<HTMLInputElement> document.getElementById("integerPositionYes")).checked;
+    let drawMethodIndex: number =
+        (cacheRotationYes ? 1 : 0)
+        + (cacheResizeYes ? 2 : 0)
+        + (integerPositionYes ? 4 : 0);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw the arrows
     for (let i = 0; i < arrows.length; i++) {
-        drawArrow(arrows[i]);
+        drawMethod[drawMethodIndex](arrows[i]);
     }
+
+    framesWithoutAStateChange++;
 
     window.requestAnimationFrame(draw);
 }
@@ -227,6 +263,7 @@ function generateArrow() {
     arrow.rotationIndex = getRandomIntInclusive(0, 3);
 
     arrows.push(arrow);
+    framesWithoutAStateChange = -1;
 }
 
 function clampValueToRange(value: number, lowerBound: number, upperBound: number): number {
@@ -245,33 +282,42 @@ function getRandomIntInclusive(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
-function drawArrow(arrow: Arrow) {
-    ctx.save();
+function drawArrow000(arrow: Arrow) {
+    let rotation: number = arrow.rotationIndex * Math.PI / 2;
     ctx.translate(arrow.x, arrow.y);
-    ctx.rotate(arrow.rotationIndex * Math.PI / 2);
+    ctx.rotate(rotation);
     ctx.drawImage(arrowColors[arrow.colorIndex], -halfArrowSize, -halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
+    ctx.rotate(-rotation);
+    ctx.translate(-arrow.x, -arrow.y);
 }
 
-function drawArrowNoResizing(arrow: Arrow) {
+function drawArrow010(arrow: Arrow) {
     let cachedCanvas: HTMLCanvasElement = arrowCacheResized[0][arrow.colorIndex];
-    ctx.save();
+    let rotation: number = arrow.rotationIndex * Math.PI / 2;
     ctx.translate(arrow.x, arrow.y);
-    ctx.rotate(arrow.rotationIndex * Math.PI / 2);
-    ctx.drawImage(cachedCanvas, -halfArrowSize, -halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
+    ctx.rotate(rotation);
+    ctx.drawImage(cachedCanvas, -halfArrowSize, -halfArrowSize);
+    ctx.rotate(-rotation);
+    ctx.translate(-arrow.x, -arrow.y);
 }
 
-function drawArrowNoRotating(arrow: Arrow) {
+function drawArrow001(arrow: Arrow) {
     let cachedCanvas: HTMLCanvasElement = arrowCacheNotResized[arrow.rotationIndex][arrow.colorIndex];
-    ctx.save();
     ctx.drawImage(cachedCanvas, arrow.x - halfArrowSize, arrow.y - halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
 }
 
-function drawArrowNoReszingOrRotating(arrow: Arrow) {
+function drawArrow011(arrow: Arrow) {
     let cachedCanvas: HTMLCanvasElement = arrowCacheResized[arrow.rotationIndex][arrow.colorIndex];
-    ctx.save();
-    ctx.drawImage(cachedCanvas, arrow.x - halfArrowSize, arrow.y - halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
+    // ctx.save();
+
+    // ctx.translate(arrow.x, arrow.y);
+    // ctx.drawImage(cachedCanvas, -halfArrowSize, -halfArrowSize);
+    ctx.drawImage(cachedCanvas, arrow.x - halfArrowSize, arrow.y - halfArrowSize);
+
+    // ctx.restore();
+}
+
+export function roundToNPlaces(x: number, numPlaces: number): number {
+    let scale: number = Math.pow(10, numPlaces);
+    return Math.round(x * scale) / scale;
 }

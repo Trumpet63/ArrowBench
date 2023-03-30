@@ -25,6 +25,14 @@ body {
 
 .topUICounter {
     display: inline-block;
-    width: 10%;
+    width: 20%;
     margin-left: 1%;
+}
+
+#rightDiv {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.5);
+    left: 80%;
+    width: 20%;
+    height: 95%;
 }
