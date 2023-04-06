@@ -1,15 +1,49 @@
+import { Arrow } from "./arrow";
+import { clampValueToRange, getRandomIntInclusive, roundToNPlaces } from "./util";
+import { drawArrowsGl, initializeShaders, setShaderTexture } from "./webgl";
 
-let canvas = <HTMLCanvasElement> document.getElementById("arrowBenchCanvas");
-canvas.width = 1920;
-canvas.height = 1080;
-let ctx: CanvasRenderingContext2D = canvas.getContext("2d");
+let canvas2d = <HTMLCanvasElement> document.getElementById("arrowBench2dCanvas");
+canvas2d.width = 1920;
+canvas2d.height = 1080;
+let canvasgl = <HTMLCanvasElement> document.getElementById("arrowBenchWebGLCanvas");
+canvasgl.width = 1920;
+canvasgl.height = 1080;
+let ctx: CanvasRenderingContext2D = canvas2d.getContext("2d");
+let gl: WebGL2RenderingContext = canvasgl.getContext("webgl2");
 
 let arrowCounter = <HTMLSpanElement> document.getElementById("arrowCounter");
 let fpsCounter = <HTMLSpanElement> document.getElementById("fpsCounter");
 let arrowsPerMsCounter = <HTMLSpanElement> document.getElementById("arrowsPerMsCounter");
 
-let arrowSize: number = 40;
+let arrowSizeInput = <HTMLInputElement> document.getElementById("arrowSizeInput");
+arrowSizeInput.addEventListener("input", () => {
+    arrowSize = arrowSizeInput.valueAsNumber;
+    halfArrowSize = arrowSize / 2;
+    createCaches();
+    initializeShaders(gl, arrowSize);
+    setShaderTexture(gl, arrowCacheSpritesheet);
+    framesWithoutAStateChange = 0;
+});
+
+let spawnRateInput = <HTMLInputElement> document.getElementById("spawnRateInput");
+spawnRateInput.addEventListener("input", () => {
+    spawnRate = Math.pow(spawnRateInput.valueAsNumber, 3);
+    arrowsSpawnedThisMouseDown = 0;
+    mouseDownStart = performance.now();
+});
+
+let clearArrowsButton = <HTMLButtonElement> document.getElementById("clearArrowsButton");
+clearArrowsButton.addEventListener("click", () => {
+    arrows = [];
+});
+
+let arrowSize: number = arrowSizeInput.valueAsNumber;
 let halfArrowSize: number = arrowSize / 2;
+let spawnRate: number = Math.pow(spawnRateInput.valueAsNumber, 3);
+let mouseDownStart: number;
+let arrowsSpawnedThisMouseDown: number;
+
+initializeShaders(gl, arrowSize);
 
 let noteskin4thPath: string = "../assets/noteskin_4th.png";
 let noteskin8thPath: string = "../assets/noteskin_8th.png";
@@ -40,58 +74,56 @@ let arrowColors: HTMLImageElement[] = [
     loadImage(noteskin192ndPath),
 ];
 
-let arrowCacheResized: HTMLCanvasElement[][];
-let arrowCacheNotResized: HTMLCanvasElement[][];
+let arrowCacheSpritesheet: HTMLCanvasElement;
 
-function createResizedCache() {
-    arrowCacheResized = [];
+function createCaches() {
+    createFullResizedSpritesheet();
+}
+
+function createFullResizedSpritesheet() {
+    arrowCacheSpritesheet = document.createElement("canvas");
+    arrowCacheSpritesheet.width = arrowColors.length * arrowSize;
+    arrowCacheSpritesheet.height = 4 * arrowSize;
+    let spritesheetCtx: CanvasRenderingContext2D = arrowCacheSpritesheet.getContext("2d");
     for (let rotationIndex = 0; rotationIndex < 4; rotationIndex++) {
-        let colorCache: HTMLCanvasElement[] = []
+        let rotation: number = rotationIndex * Math.PI / 2;
         for (let colorIndex = 0; colorIndex < arrowColors.length; colorIndex++) {
-            let canvas: HTMLCanvasElement = document.createElement("canvas");
-            canvas.width = arrowSize;
-            canvas.height = arrowSize;
-            let ctx: CanvasRenderingContext2D = canvas.getContext("2d");
-            drawArrowToCacheResized(ctx, rotationIndex, colorIndex);
-            colorCache.push(canvas);
+            let destinationX: number = colorIndex * arrowSize;
+            let destinationY: number = rotationIndex * arrowSize;
+            spritesheetCtx.translate(destinationX + halfArrowSize, destinationY + halfArrowSize);
+            spritesheetCtx.rotate(rotation);
+            spritesheetCtx.drawImage(
+                arrowColors[colorIndex],
+                -halfArrowSize,
+                -halfArrowSize,
+                arrowSize,
+                arrowSize,
+            );
+            spritesheetCtx.rotate(-rotation);
+            spritesheetCtx.translate(-(destinationX + halfArrowSize), -(destinationY + halfArrowSize));
         }
-        arrowCacheResized.push(colorCache);
     }
 }
 
-function drawArrowToCacheResized(ctx: CanvasRenderingContext2D, rotationIndex: number, colorIndex: number) {
-    ctx.save();
-    ctx.translate(halfArrowSize, halfArrowSize);
-    ctx.rotate(rotationIndex * Math.PI / 2);
-    ctx.drawImage(arrowColors[colorIndex], -halfArrowSize, -halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
-}
-
-function createNotResizedCache() {
-    arrowCacheNotResized = [];
-    let arrowImageSize: number = arrowColors[0].height;
-    for (let rotationIndex = 0; rotationIndex < 4; rotationIndex++) {
-        let colorCache: HTMLCanvasElement[] = []
-        for (let colorIndex = 0; colorIndex < arrowColors.length; colorIndex++) {
-            let canvas: HTMLCanvasElement = document.createElement("canvas");
-            canvas.width = arrowImageSize;
-            canvas.height = arrowImageSize;
-            let ctx: CanvasRenderingContext2D = canvas.getContext("2d");
-            drawArrowToCacheNotResized(ctx, rotationIndex, colorIndex);
-            colorCache.push(canvas);
-        }
-        arrowCacheNotResized.push(colorCache);
-    }
-}
-
-function drawArrowToCacheNotResized(ctx: CanvasRenderingContext2D, rotationIndex: number, colorIndex: number) {
-    let arrowSize: number = arrowColors[colorIndex].height;
-    let halfArrowSize = arrowSize / 2;
-    ctx.save();
-    ctx.translate(halfArrowSize, halfArrowSize);
-    ctx.rotate(rotationIndex * Math.PI / 2);
-    ctx.drawImage(arrowColors[colorIndex], -halfArrowSize, -halfArrowSize, arrowSize, arrowSize);
-    ctx.restore();
+// Note: 
+// Transforming and then untransforming is faster than using save/restore
+// Drawing the resized arrow to an offscreen canvas so that drawImage
+//     doesn't have to resize is significantly faster (except on FireFox where it's only like 3% faster)
+// For some reason, [0][arrow.colorIndex] is faster than [arrow.rotationIndex][arrow.colorIndex]
+// Drawing from an HTMLCanvasElement is faster than drawing from an HTMLImageElement
+// Drawing from single spritesheet is about 80% faster than drawing from 48 separate canvases
+function drawFromFullResizedSpritesheet(arrow: Arrow) {
+    ctx.drawImage(
+        arrowCacheSpritesheet,
+        arrow.colorIndex * arrowSize,
+        arrow.rotationIndex * arrowSize,
+        arrowSize,
+        arrowSize,
+        arrow.x - halfArrowSize,
+        arrow.y - halfArrowSize,
+        arrowSize,
+        arrowSize,
+    );
 }
 
 // See this if I encounter weird loading problems later:
@@ -115,8 +147,8 @@ function loadImage(imageSource: string): HTMLImageElement {
 let preloadIntervalId = setInterval(() => {
     if (preloadDone()) {
         clearInterval(preloadIntervalId);
-        createResizedCache();
-        createNotResizedCache();
+        createCaches();
+        setShaderTexture(gl, arrowCacheSpritesheet);
         window.requestAnimationFrame(draw);
     }
 }, 100);
@@ -134,7 +166,11 @@ let mouseDown: boolean = false;
 let mouseX: number = 0;
 let mouseY: number = 0;
 
-document.addEventListener("mousedown", (e: MouseEvent) => { mouseDown = true; });
+document.addEventListener("mousedown", (e: MouseEvent) => {
+    mouseDown = true;
+    arrowsSpawnedThisMouseDown = 0;
+    mouseDownStart = performance.now();
+});
 document.addEventListener("mouseup", (e: MouseEvent) => { mouseDown = false; });
 document.addEventListener("mousemove", (e: MouseEvent) => {
     mouseX = e.clientX;
@@ -142,32 +178,12 @@ document.addEventListener("mousemove", (e: MouseEvent) => {
 });
 
 let previousFrameTimes: number[] = [];
-let numFrameTimesToRemember: number = 200;
+let numFrameTimesToRemember: number = 100;
 let framesWithoutAStateChange: number = 0;
 
 let arrows: Arrow[] = [];
 
-class Arrow {
-    public x: number;
-    public y: number;
-    public velocityX: number;
-    public velocityY: number;
-    public colorIndex: number;
-    public rotationIndex: number;
-}
-
 let logCounter: number = 0;
-
-let drawMethod: ((arrow: Arrow) => void)[] = [
-    drawArrow000,
-    drawArrow001,
-    drawArrow010,
-    drawArrow011,
-    // drawArrow100,
-    // drawArrow101,
-    // drawArrow110,
-    // drawArrow111,
-];
 
 function draw(currentTimeMillis: number) {
     if (previousFrameTimes.length >= numFrameTimesToRemember) {
@@ -194,20 +210,23 @@ function draw(currentTimeMillis: number) {
                 arrows[i].y += 2 * (halfArrowSize - arrows[i].y);
                 arrows[i].velocityY = -arrows[i].velocityY;
             }
-            if (arrows[i].x + halfArrowSize > canvas.width) { // donk on the right
-                arrows[i].x -= 2 * (arrows[i].x + halfArrowSize - canvas.width);
+            if (arrows[i].x + halfArrowSize > canvas2d.width) { // donk on the right
+                arrows[i].x -= 2 * (arrows[i].x + halfArrowSize - canvas2d.width);
                 arrows[i].velocityX = -arrows[i].velocityX;
             }
-            if (arrows[i].y + halfArrowSize > canvas.height) { // donk on the bottom
-                arrows[i].y -= 2 * (arrows[i].y + halfArrowSize - canvas.height);
+            if (arrows[i].y + halfArrowSize > canvas2d.height) { // donk on the bottom
+                arrows[i].y -= 2 * (arrows[i].y + halfArrowSize - canvas2d.height);
                 arrows[i].velocityY = -arrows[i].velocityY;
             }
         }
     }
 
     if (mouseDown) {
-        for (let i = 0; i < 3; i++) {
+        let mouseDownDeltaMillis: number = currentTimeMillis - mouseDownStart;
+        let expectedArrows: number = Math.floor(mouseDownDeltaMillis * spawnRate / 1000);
+        while (arrowsSpawnedThisMouseDown < expectedArrows) {
             generateArrow();
+            arrowsSpawnedThisMouseDown++;
         }
     }
 
@@ -229,19 +248,20 @@ function draw(currentTimeMillis: number) {
     }
 
     // read the state of the right UI
-    let cacheRotationYes = (<HTMLInputElement> document.getElementById("cacheRotationYes")).checked;
-    let cacheResizeYes = (<HTMLInputElement> document.getElementById("cacheResizeYes")).checked;
-    let integerPositionYes = (<HTMLInputElement> document.getElementById("integerPositionYes")).checked;
-    let drawMethodIndex: number =
-        (cacheRotationYes ? 1 : 0)
-        + (cacheResizeYes ? 2 : 0)
-        + (integerPositionYes ? 4 : 0);
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let drawMethodWebGL = (<HTMLInputElement> document.getElementById("drawMethodWebGL")).checked;
+    
+    ctx.clearRect(0, 0, canvas2d.width, canvas2d.height);
+    
+    ctx.imageSmoothingEnabled = false;
 
     // draw the arrows
-    for (let i = 0; i < arrows.length; i++) {
-        drawMethod[drawMethodIndex](arrows[i]);
+    if (drawMethodWebGL) {
+        drawArrowsGl(gl, arrows);
+    } else {
+        for (let i = 0; i < arrows.length; i++) {
+            drawFromFullResizedSpritesheet(arrows[i]);
+        }
+        gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
     framesWithoutAStateChange++;
@@ -251,8 +271,8 @@ function draw(currentTimeMillis: number) {
 
 function generateArrow() {
     let arrow: Arrow = new Arrow();
-    arrow.x = clampValueToRange(mouseX, 0, canvas.width);
-    arrow.y = clampValueToRange(mouseY, 0, canvas.height);
+    arrow.x = clampValueToRange(mouseX, 0, canvas2d.width);
+    arrow.y = clampValueToRange(mouseY, 0, canvas2d.height);
     
     let velocityMagnitudePixelsPerMillisecond: number = 0.4;
     let randomAngle: number = Math.random() * 2 * Math.PI;
@@ -264,60 +284,4 @@ function generateArrow() {
 
     arrows.push(arrow);
     framesWithoutAStateChange = -1;
-}
-
-function clampValueToRange(value: number, lowerBound: number, upperBound: number): number {
-    if (value < lowerBound) {
-        return lowerBound;
-    }
-    if (value > upperBound) {
-        return upperBound;
-    }
-    return value;
-}
-
-function getRandomIntInclusive(min: number, max: number): number {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1) + min);
-}
-
-function drawArrow000(arrow: Arrow) {
-    let rotation: number = arrow.rotationIndex * Math.PI / 2;
-    ctx.translate(arrow.x, arrow.y);
-    ctx.rotate(rotation);
-    ctx.drawImage(arrowColors[arrow.colorIndex], -halfArrowSize, -halfArrowSize, arrowSize, arrowSize);
-    ctx.rotate(-rotation);
-    ctx.translate(-arrow.x, -arrow.y);
-}
-
-function drawArrow010(arrow: Arrow) {
-    let cachedCanvas: HTMLCanvasElement = arrowCacheResized[0][arrow.colorIndex];
-    let rotation: number = arrow.rotationIndex * Math.PI / 2;
-    ctx.translate(arrow.x, arrow.y);
-    ctx.rotate(rotation);
-    ctx.drawImage(cachedCanvas, -halfArrowSize, -halfArrowSize);
-    ctx.rotate(-rotation);
-    ctx.translate(-arrow.x, -arrow.y);
-}
-
-function drawArrow001(arrow: Arrow) {
-    let cachedCanvas: HTMLCanvasElement = arrowCacheNotResized[arrow.rotationIndex][arrow.colorIndex];
-    ctx.drawImage(cachedCanvas, arrow.x - halfArrowSize, arrow.y - halfArrowSize, arrowSize, arrowSize);
-}
-
-function drawArrow011(arrow: Arrow) {
-    let cachedCanvas: HTMLCanvasElement = arrowCacheResized[arrow.rotationIndex][arrow.colorIndex];
-    // ctx.save();
-
-    // ctx.translate(arrow.x, arrow.y);
-    // ctx.drawImage(cachedCanvas, -halfArrowSize, -halfArrowSize);
-    ctx.drawImage(cachedCanvas, arrow.x - halfArrowSize, arrow.y - halfArrowSize);
-
-    // ctx.restore();
-}
-
-export function roundToNPlaces(x: number, numPlaces: number): number {
-    let scale: number = Math.pow(10, numPlaces);
-    return Math.round(x * scale) / scale;
 }

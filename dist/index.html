@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="arrowBenchCanvas"></canvas>
+    <canvas id="arrowBench2dCanvas"></canvas>
+    <canvas id="arrowBenchWebGLCanvas"></canvas>
     <div id="uiDiv">
         <div id="topDiv">
             <div id="arrowCounterDiv" class="topUICounter">
@@ -21,25 +22,22 @@
         </div>
         <div id="rightDiv">
             <div class="radioDiv">
-                <span>Cache Rotation</span>
-                <input type="radio" id="cacheRotationYes" name="cacheRotation">
-                <label for="cacheRotationYes">Yes</label>
-                <input type="radio" id="cacheRotationNo" name="cacheRotation">
-                <label for="cacheRotationNo">No</label>
+                <span>Draw Method</span>
+                <input type="radio" id="drawMethodSoftware" name="drawMethod" checked>
+                <label for="drawMethodSoftware">Software</label>
+                <input type="radio" id="drawMethodWebGL" name="drawMethod">
+                <label for="drawMethodWebGL">WebGL</label>
             </div>
-            <div class="radioDiv">
-                <span>Cache Resize</span>
-                <input type="radio" id="cacheResizeYes" name="cacheResize">
-                <label for="cacheResizeYes">Yes</label>
-                <input type="radio" id="cacheResizeNo" name="cacheResize">
-                <label for="cacheResizeNo">No</label>
+            <div class="sliderDiv">
+                <span>Arrow Size</span>
+                <input type="range" id="arrowSizeInput" min="1" max="400" value="40">
             </div>
-            <div class="radioDiv">
-                <span>Integer Position</span>
-                <input type="radio" id="integerPositionYes" name="integerPosition">
-                <label for="integerPositionYes">Yes</label>
-                <input type="radio" id="integerPositionNo" name="integerPosition">
-                <label for="integerPositionNo">No</label>
+            <div class="sliderDiv">
+                <span>Spawn Rate</span>
+                <input type="range" id="spawnRateInput" min="1" max="36.8" value="4.64" step="0.001">
+            </div>
+            <div class="buttonDiv">
+                <button id="clearArrowsButton">Clear Arrows</button>
             </div>
         </div>
     </div>

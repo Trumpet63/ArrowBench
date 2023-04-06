@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     background-color: black;
@@ -5,11 +9,21 @@ body {
     font-size: xx-large;
 }
 
-#arrowBenchCanvas {
+#arrowBench2dCanvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
     background-color: rgb(71, 71, 71);
 }
 
+#arrowBenchWebGLCanvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
 #uiDiv {
+    user-select: none;
     position: absolute;
     top: 0px;
     left: 0px;
@@ -30,9 +44,28 @@ body {
 }
 
 #rightDiv {
+    user-select: none;
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
     left: 80%;
     width: 20%;
     height: 95%;
+    padding-left: 2%;
+}
+
+.radioDiv span {
+    display: block;
+}
+
+.radioDiv + .radioDiv {
+    padding-top: 2%;
+}
+
+.sliderDiv span {
+    display: block;
+    padding-top: 2%;
+}
+
+.sliderDiv input {
+    width: 70%;
 }
