@@ -9,6 +9,7 @@ let canvasgl = <HTMLCanvasElement> document.getElementById("arrowBenchWebGLCanva
 canvasgl.width = 1920;
 canvasgl.height = 1080;
 let ctx: CanvasRenderingContext2D = canvas2d.getContext("2d");
+ctx.imageSmoothingEnabled = false;
 let gl: WebGL2RenderingContext = canvasgl.getContext("webgl2");
 
 let arrowCounter = <HTMLSpanElement> document.getElementById("arrowCounter");
@@ -35,6 +36,15 @@ spawnRateInput.addEventListener("input", () => {
 let clearArrowsButton = <HTMLButtonElement> document.getElementById("clearArrowsButton");
 clearArrowsButton.addEventListener("click", () => {
     arrows = [];
+});
+
+let drawMethodWebGLInput = <HTMLInputElement> document.getElementById("drawMethodWebGL");
+drawMethodWebGLInput.addEventListener("input", () => {
+    framesWithoutAStateChange = 0;
+});
+let drawMethodSoftwareInput = <HTMLInputElement> document.getElementById("drawMethodSoftware");
+drawMethodSoftwareInput.addEventListener("input", () => {
+    framesWithoutAStateChange = 0;
 });
 
 let arrowSize: number = arrowSizeInput.valueAsNumber;
@@ -246,22 +256,17 @@ function draw(currentTimeMillis: number) {
     } else {
         arrowsPerMsCounter.innerText = "calculating...";
     }
-
-    // read the state of the right UI
-    let drawMethodWebGL = (<HTMLInputElement> document.getElementById("drawMethodWebGL")).checked;
     
     ctx.clearRect(0, 0, canvas2d.width, canvas2d.height);
-    
-    ctx.imageSmoothingEnabled = false;
 
     // draw the arrows
-    if (drawMethodWebGL) {
+    if (drawMethodWebGLInput.checked) {
         drawArrowsGl(gl, arrows);
     } else {
+        gl.clear(gl.COLOR_BUFFER_BIT);
         for (let i = 0; i < arrows.length; i++) {
             drawFromFullResizedSpritesheet(arrows[i]);
         }
-        gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
     framesWithoutAStateChange++;
