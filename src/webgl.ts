@@ -2,6 +2,11 @@ import { Arrow } from "./arrow";
 
 let offsetLocation: number;
 
+// If I create buffers repeatedly without deleting them then I'll cause a memory
+// leak in at least FireFox but possibly other browsers. Not Chrome though.
+let instanceBuffer: WebGLBuffer;
+let positionBuffer: WebGLBuffer;
+
 export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number) {
     let halfArrowSize: number = arrowSize / 2;
 
@@ -59,7 +64,10 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
     ]);
     gl.uniformMatrix3fv(u_matrixLoc, false, matrix);
 
-    let positionBuffer = gl.createBuffer();
+    if (positionBuffer !== undefined) {
+        gl.deleteBuffer(positionBuffer);
+    }
+    positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
         0.0,  0.0,
@@ -82,6 +90,12 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
     // enable alpha blending
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Create a buffer to store the per-instance data
+    if (instanceBuffer !== undefined) {
+        gl.deleteBuffer(instanceBuffer);
+    }
+    instanceBuffer = gl.createBuffer();
 }
 
 export function setShaderTexture(gl: WebGL2RenderingContext, image: HTMLCanvasElement) {
@@ -89,10 +103,6 @@ export function setShaderTexture(gl: WebGL2RenderingContext, image: HTMLCanvasEl
 }
 
 export function drawArrowsGl(gl:WebGL2RenderingContext, arrows: Arrow[]) {
-    // Create a buffer to store the per-instance data
-    let instanceBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-
     // Populate the instance buffer with per-instance data
     let instanceVectors: number[] = [];
     for (let i = 0; i < arrows.length; i++) {
@@ -101,6 +111,7 @@ export function drawArrowsGl(gl:WebGL2RenderingContext, arrows: Arrow[]) {
         instanceVectors.push(arrows[i].rotationIndex);
         instanceVectors.push(arrows[i].colorIndex);
     }
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instanceVectors), gl.STATIC_DRAW);
 
     // Bind the instance buffer to the a_instance attribute
