@@ -1,3 +1,2 @@
 try using a spritesheet to cache everything (separate spritesheets for each variation)
 try using struct of arrays pattern rather than array of structs
-turn off image smoothing for all the cpu-based methods because it looks better

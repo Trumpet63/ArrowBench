@@ -1,25 +1,33 @@
 import { Arrow } from "./arrow";
 
-let offsetLocation: number;
+let instancePositionsLocation: number;
+let instanceTraitsLocation: number;
+
+let logCounter: number = 0;
 
 // If I create buffers repeatedly without deleting them then I'll cause a memory
 // leak in at least FireFox but possibly other browsers. Not Chrome though.
-let instanceBuffer: WebGLBuffer;
+let instancePositionsBuffer: WebGLBuffer;
+let instanceTraitsBuffer: WebGLBuffer;
 let positionBuffer: WebGLBuffer;
+
+let previousNumArrows: number;
 
 export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number) {
     let halfArrowSize: number = arrowSize / 2;
 
     let vertexShaderSrc = `
         attribute vec2 a_position;
-        attribute vec4 a_instance;
+        attribute vec2 a_instance_position;
+        attribute vec2 a_instance_traits;
         uniform mat3 u_matrix;
         varying vec2 v_texCoord;
 
         void main() {
-            vec2 canvas_position = a_position * vec2(${arrowSize}, ${arrowSize}) + a_instance.xy + vec2(-${halfArrowSize}, -${halfArrowSize});
+            vec2 canvas_position = a_position * vec2(${arrowSize}, ${arrowSize}) + a_instance_position + vec2(-${halfArrowSize}, -${halfArrowSize});
             gl_Position = vec4(u_matrix * vec3(canvas_position, 1), 1) + vec4(-1, 1, 0, 0);
-            v_texCoord = a_position / vec2(12, 4) + vec2(a_instance.w, a_instance.z) / vec2(12, 4);
+            // v_texCoord = a_position / vec2(12, 4);
+            v_texCoord = a_position / vec2(12, 4) + a_instance_traits / vec2(12, 4);
         }`
 
     let fragmentShaderSrc = `
@@ -55,7 +63,8 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
 
     let u_matrixLoc = gl.getUniformLocation(program, "u_matrix");
     let positionLocation = gl.getAttribLocation(program, "a_position");
-    offsetLocation = gl.getAttribLocation(program, "a_instance");
+    instancePositionsLocation = gl.getAttribLocation(program, "a_instance_position");
+    instanceTraitsLocation = gl.getAttribLocation(program, "a_instance_traits");
 
     let matrix = new Float32Array([
         2 / gl.canvas.width, 0, 0,
@@ -91,11 +100,17 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Create a buffer to store the per-instance data
-    if (instanceBuffer !== undefined) {
-        gl.deleteBuffer(instanceBuffer);
+    if (instancePositionsBuffer !== undefined) {
+        gl.deleteBuffer(instancePositionsBuffer);
     }
-    instanceBuffer = gl.createBuffer();
+    instancePositionsBuffer = gl.createBuffer();
+
+    if (instanceTraitsBuffer !== undefined) {
+        gl.deleteBuffer(instanceTraitsBuffer);
+    }
+    instanceTraitsBuffer = gl.createBuffer();
+
+    previousNumArrows = undefined;
 }
 
 export function setShaderTexture(gl: WebGL2RenderingContext, image: HTMLCanvasElement) {
@@ -103,21 +118,55 @@ export function setShaderTexture(gl: WebGL2RenderingContext, image: HTMLCanvasEl
 }
 
 export function drawArrowsGl(gl:WebGL2RenderingContext, arrows: Arrow[]) {
-    // Populate the instance buffer with per-instance data
-    let instanceVectors: number[] = [];
-    for (let i = 0; i < arrows.length; i++) {
-        instanceVectors.push(arrows[i].x);
-        instanceVectors.push(arrows[i].y);
-        instanceVectors.push(arrows[i].rotationIndex);
-        instanceVectors.push(arrows[i].colorIndex);
+    if (arrows.length === previousNumArrows) {
+        justSendPosition(gl, arrows);
+    } else {
+        sendPositionAndTraits(gl, arrows);
     }
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instanceVectors), gl.STATIC_DRAW);
 
-    // Bind the instance buffer to the a_instance attribute
-    gl.enableVertexAttribArray(offsetLocation);
-    gl.vertexAttribPointer(offsetLocation, 4, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(offsetLocation, 1);
+    previousNumArrows = arrows.length;
+}
+
+function sendPositionAndTraits(gl: WebGL2RenderingContext, arrows: Arrow[]) {
+    let instancePositions: number[] = [];
+    for (let i = 0; i < arrows.length; i++) {
+        instancePositions.push(arrows[i].x);
+        instancePositions.push(arrows[i].y);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionsBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instancePositions), gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(instancePositionsLocation);
+    gl.vertexAttribPointer(instancePositionsLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(instancePositionsLocation, 1);
+
+    let instanceTraits: number[] = [];
+    for (let i = 0; i < arrows.length; i++) {
+        instanceTraits.push(arrows[i].colorIndex);
+        instanceTraits.push(arrows[i].rotationIndex);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceTraitsBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instanceTraits), gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(instanceTraitsLocation);
+    gl.vertexAttribPointer(instanceTraitsLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(instanceTraitsLocation, 1);
+
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, arrows.length);
+}
+
+function justSendPosition(gl: WebGL2RenderingContext, arrows: Arrow[]) {
+    let instancePositions: number[] = [];
+    for (let i = 0; i < arrows.length; i++) {
+        instancePositions.push(arrows[i].x);
+        instancePositions.push(arrows[i].y);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, instancePositionsBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(instancePositions));
+
+    gl.enableVertexAttribArray(instancePositionsLocation);
+    gl.vertexAttribPointer(instancePositionsLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(instancePositionsLocation, 1);
 
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, arrows.length);
 }
