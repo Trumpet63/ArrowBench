@@ -26,6 +26,11 @@ arrowSizeInput.addEventListener("input", () => {
     framesWithoutAStateChange = 0;
 });
 
+let arrowSpeedInput = <HTMLInputElement> document.getElementById("arrowSpeedInput");
+arrowSpeedInput.addEventListener("input", () => {
+    speedModifier = arrowSpeedInput.valueAsNumber;
+});
+
 let spawnRateInput = <HTMLInputElement> document.getElementById("spawnRateInput");
 spawnRateInput.addEventListener("input", () => {
     spawnRate = Math.pow(spawnRateInput.valueAsNumber, 3);
@@ -48,6 +53,7 @@ drawMethodSoftwareInput.addEventListener("input", () => {
 });
 
 let arrowSize: number = arrowSizeInput.valueAsNumber;
+let speedModifier: number = arrowSpeedInput.valueAsNumber;
 let halfArrowSize: number = arrowSize / 2;
 let spawnRate: number = Math.pow(spawnRateInput.valueAsNumber, 3);
 let mouseDownStart: number;
@@ -218,8 +224,8 @@ function draw(currentTimeMillis: number) {
     // simulate the arrows
     if (previousFrameTimes.length > 1) {
         for (let i = 0; i < arrows.length; i++) {
-            arrows[i].x += arrows[i].velocityX * deltaTimeMillis;
-            arrows[i].y += arrows[i].velocityY * deltaTimeMillis;
+            arrows[i].x += arrows[i].velocityX * speedModifier * deltaTimeMillis;
+            arrows[i].y += arrows[i].velocityY * speedModifier * deltaTimeMillis;
 
             if (arrows[i].x - halfArrowSize < 0) { // donk on the left
                 arrows[i].x += 2 * (halfArrowSize - arrows[i].x);

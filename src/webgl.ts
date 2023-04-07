@@ -3,8 +3,6 @@ import { Arrow } from "./arrow";
 let instancePositionsLocation: number;
 let instanceTraitsLocation: number;
 
-let logCounter: number = 0;
-
 // If I create buffers repeatedly without deleting them then I'll cause a memory
 // leak in at least FireFox but possibly other browsers. Not Chrome though.
 let instancePositionsBuffer: WebGLBuffer;
