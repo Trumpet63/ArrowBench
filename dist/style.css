@@ -3,6 +3,8 @@
 }
 
 body {
+    display: flex;
+    justify-content: space-around;
     margin: 0;
     background-color: black;
     color: white;
@@ -12,26 +14,29 @@ body {
 #arrowBench2dCanvas {
     position: absolute;
     top: 0px;
-    left: 0px;
+    width: 1920px;
+    height: 1080px;
     background-color: rgb(71, 71, 71);
 }
 
 #arrowBenchWebGLCanvas {
     position: absolute;
     top: 0px;
-    left: 0px;
+    width: 1920px;
+    height: 1080px;
 }
 
 #uiDiv {
     user-select: none;
     position: absolute;
     top: 0px;
-    left: 0px;
     width: 1920px;
     height: 1080px;
 }
 
 #topDiv {
+    display: flex;
+    align-items: center;
     background-color: rgba(0, 0, 0, 0.5);
     width: 100%;
     height: 5%;
@@ -58,14 +63,31 @@ body {
 }
 
 .radioDiv + .radioDiv {
-    padding-top: 2%;
+    padding-top: 6%;
 }
 
 .sliderDiv span {
     display: block;
-    padding-top: 2%;
+    padding-top: 6%;
 }
 
 .sliderDiv input {
     width: 70%;
+}
+
+.buttonDiv {
+    display: flex;
+    box-sizing: content-box;
+    padding-top: 9%;
+    justify-content: space-around;
+    width: 80%;
+    height: 3.7%;
+}
+
+.buttonDiv button {
+    width: 60%;
+    font-size: large;
+    font-weight: bold;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
 }

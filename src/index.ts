@@ -183,7 +183,7 @@ document.addEventListener("mousedown", (e: MouseEvent) => {
 });
 document.addEventListener("mouseup", (e: MouseEvent) => { mouseDown = false; });
 document.addEventListener("mousemove", (e: MouseEvent) => {
-    mouseX = e.clientX;
+    mouseX = e.clientX - canvas2d.offsetLeft;
     mouseY = e.clientY;
 });
 
@@ -204,6 +204,15 @@ function draw(currentTimeMillis: number) {
     let deltaTimeMillis: number;
     if (previousFrameTimes.length > 1) {
         deltaTimeMillis = currentTimeMillis - previousFrameTimes[previousFrameTimes.length - 2];
+    }
+
+    if (mouseDown) {
+        let mouseDownDeltaMillis: number = currentTimeMillis - mouseDownStart;
+        let expectedArrows: number = Math.floor(mouseDownDeltaMillis * spawnRate / 1000);
+        while (arrowsSpawnedThisMouseDown < expectedArrows) {
+            generateArrow();
+            arrowsSpawnedThisMouseDown++;
+        }
     }
 
     // simulate the arrows
@@ -228,15 +237,6 @@ function draw(currentTimeMillis: number) {
                 arrows[i].y -= 2 * (arrows[i].y + halfArrowSize - canvas2d.height);
                 arrows[i].velocityY = -arrows[i].velocityY;
             }
-        }
-    }
-
-    if (mouseDown) {
-        let mouseDownDeltaMillis: number = currentTimeMillis - mouseDownStart;
-        let expectedArrows: number = Math.floor(mouseDownDeltaMillis * spawnRate / 1000);
-        while (arrowsSpawnedThisMouseDown < expectedArrows) {
-            generateArrow();
-            arrowsSpawnedThisMouseDown++;
         }
     }
 
