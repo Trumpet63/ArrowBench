@@ -1,2 +1,1 @@
-try using a spritesheet to cache everything (separate spritesheets for each variation)
 try using struct of arrays pattern rather than array of structs

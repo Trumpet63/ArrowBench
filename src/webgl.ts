@@ -24,8 +24,7 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
         void main() {
             vec2 canvas_position = a_position * vec2(${arrowSize}, ${arrowSize}) + a_instance_position + vec2(-${halfArrowSize}, -${halfArrowSize});
             gl_Position = vec4(u_matrix * vec3(canvas_position, 1), 1) + vec4(-1, 1, 0, 0);
-            // v_texCoord = a_position / vec2(12, 4);
-            v_texCoord = a_position / vec2(12, 4) + a_instance_traits / vec2(12, 4);
+            v_texCoord = a_position / vec2(12.0, 4.0) * vec2(0.9985, 0.9985) + a_instance_traits / vec2(12.0, 4.0);
         }`
 
     let fragmentShaderSrc = `
@@ -77,12 +76,12 @@ export function initializeShaders(gl: WebGL2RenderingContext, arrowSize: number)
     positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        0.0,  0.0,
-        1.0,  0.0,
-        0.0,  1.0,
-        0.0,  1.0,
-        1.0,  0.0,
-        1.0,  1.0,
+        0,  0,
+        1,  0,
+        0,  1,
+        0,  1,
+        1,  0,
+        1,  1,
     ]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
@@ -115,7 +114,7 @@ export function setShaderTexture(gl: WebGL2RenderingContext, image: HTMLCanvasEl
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 }
 
-export function drawArrowsGl(gl:WebGL2RenderingContext, arrows: Arrow[]) {
+export function drawArrowsGl(gl: WebGL2RenderingContext, arrows: Arrow[]) {
     if (arrows.length === previousNumArrows) {
         justSendPosition(gl, arrows);
     } else {

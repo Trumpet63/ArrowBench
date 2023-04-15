@@ -20,7 +20,7 @@ let arrowSizeInput = <HTMLInputElement> document.getElementById("arrowSizeInput"
 arrowSizeInput.addEventListener("input", () => {
     arrowSize = arrowSizeInput.valueAsNumber;
     halfArrowSize = arrowSize / 2;
-    createCaches();
+    createFullResizedSpritesheet();
     initializeShaders(gl, arrowSize);
     setShaderTexture(gl, arrowCacheSpritesheet);
     framesWithoutAStateChange = 0;
@@ -92,20 +92,16 @@ let arrowColors: HTMLImageElement[] = [
 
 let arrowCacheSpritesheet: HTMLCanvasElement;
 
-function createCaches() {
-    createFullResizedSpritesheet();
-}
-
 function createFullResizedSpritesheet() {
     arrowCacheSpritesheet = document.createElement("canvas");
-    arrowCacheSpritesheet.width = arrowColors.length * arrowSize;
-    arrowCacheSpritesheet.height = 4 * arrowSize;
+    arrowCacheSpritesheet.width = arrowColors.length * arrowSize + arrowColors.length;
+    arrowCacheSpritesheet.height = 4 * arrowSize + 4;
     let spritesheetCtx: CanvasRenderingContext2D = arrowCacheSpritesheet.getContext("2d");
     for (let rotationIndex = 0; rotationIndex < 4; rotationIndex++) {
         let rotation: number = rotationIndex * Math.PI / 2;
         for (let colorIndex = 0; colorIndex < arrowColors.length; colorIndex++) {
-            let destinationX: number = colorIndex * arrowSize;
-            let destinationY: number = rotationIndex * arrowSize;
+            let destinationX: number = colorIndex * arrowSize + colorIndex;
+            let destinationY: number = rotationIndex * arrowSize + rotationIndex;
             spritesheetCtx.translate(destinationX + halfArrowSize, destinationY + halfArrowSize);
             spritesheetCtx.rotate(rotation);
             spritesheetCtx.drawImage(
@@ -131,8 +127,8 @@ function createFullResizedSpritesheet() {
 function drawFromFullResizedSpritesheet(arrow: Arrow) {
     ctx.drawImage(
         arrowCacheSpritesheet,
-        arrow.colorIndex * arrowSize,
-        arrow.rotationIndex * arrowSize,
+        arrow.colorIndex * arrowSize + arrow.colorIndex,
+        arrow.rotationIndex * arrowSize + arrow.rotationIndex,
         arrowSize,
         arrowSize,
         arrow.x - halfArrowSize,
@@ -163,7 +159,7 @@ function loadImage(imageSource: string): HTMLImageElement {
 let preloadIntervalId = setInterval(() => {
     if (preloadDone()) {
         clearInterval(preloadIntervalId);
-        createCaches();
+        createFullResizedSpritesheet();
         setShaderTexture(gl, arrowCacheSpritesheet);
         window.requestAnimationFrame(draw);
     }
